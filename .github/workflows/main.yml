@@ -65,154 +65,10 @@ jobs:
           draft: false
           prerelease: true
 
-  build_on_windows:
-    needs: create_release
-    runs-on: windows-2019
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
-      with:
-        repository: uglide/RedisDesktopManager
-        path: rdm
-        submodules: 'recursive'
-        ref: ${{ env.RDM_REF }}
-
-    # install QT   
-    - name: install QT
-      uses: jurplel/install-qt-action@v2
-      with: 
-        version: '5.15.1'
-        modules: 'qtcharts'
-
-#     - name : fix compilation
-#       run: |
-#         cd rdm/3rdparty/qredisclient/3rdparty/hiredis
-#         git apply ../hiredis-win.patch
-
-    - name: install zlib
-      run: |
-        cd rdm/3rdparty
-        nuget install zlib-msvc14-x64 -Version 1.2.11.7795
-
-    # from https://github.com/lework/RedisDesktopManager-Windows
-    - name: build lz4
-      run: |
-        cd rdm/3rdparty/lz4/build/cmake
-        cmake -G "${{ env.CMAKE_VS }}" -A x64 -DLZ4_BUNDLED_MODE=ON -DBUILD_SHARED_LIBS=ON -B .
-        cmake --build . --config Release
-
-    - name: build zstd
-      run: |
-        cd rdm/3rdparty/zstd/build/cmake
-        cmake -G "${{ env.CMAKE_VS }}" -A x64 -B .
-        cmake --build . --config Release
-
-    - name: build snappy
-      run: |
-        cd rdm/3rdparty/snappy
-        cmake -G "${{ env.CMAKE_VS }}" -A x64 -B .
-        cmake --build . --config Release
-
-    - name: build brotli
-      run: |
-        cd rdm/3rdparty/brotli
-        cmake -G "${{ env.CMAKE_VS }}" -A x64 -B .
-        cmake -DCMAKE_BUILD_TYPE=Release
-        cmake --build . --config Release
-
-#    # install python3  
-#    - name: install Python3
-#      uses: actions/setup-python@v2
-#      with:
-#        python-version: '3.7'
-#        architecture: 'x64' # optional x64 or x86. Defaults to x64 if not specified
-
-    # install python3
-    - name: install python3
-      shell: cmd
-      run: mklink /d C:\Python${{ env.PY_LIB_VERSION }}-x64 C:\hostedtoolcache\windows\python\${{ env.PYTHON_EMBEDDED_VERSION }}\x64
-
-    # pip install
-    - name: pip install
-      shell: cmd
-      run: |
-        cd rdm\build\windows\installer\resources
-        xcopy %GITHUB_WORKSPACE%\rdm\src\py . /s /i
-        mkdir Lib\site-packages
-        pip3 install -t Lib\site-packages -r requirements.txt
-        python -m compileall -b .
-        del /s /q *.py
-        forfiles /p "." /s /m __pycache__ /c "cmd /c if @isdir==TRUE rd /s /q @file 2>nul" 2>nul | exit /b 0
-        forfiles /p "." /s /m *.dist-info /c "cmd /c if @isdir==TRUE rd /s /q @file 2>nul" 2>nul | exit /b 0
-        forfiles /p "." /s /m *.egg-info /c "cmd /c if @isdir==TRUE rd /s /q @file 2>nul" 2>nul | exit /b 0
-
-    # https://doc.qt.io/qt-5/linguist-manager.html
-    # lupdate resp.pro
-    - name: translations
-      shell: cmd
-      run: |
-        cd rdm\src
-        lupdate resp.pro
-        lrelease -verbose resp.pro
-        xcopy resources\translations\*.qm ..\build\windows\installer\resources\translations /s /i
-
-    # Runs a single command using the runners shell
-    - name: build
-      shell: cmd
-      env:
-        vc_arch: x64
-      run: |
-        python rdm\build\utils\set_version.py ${{ env.VERSION }} > rdm\src\version.h
-        cd rdm\src
-        call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %vc_arch%
-        qmake resp.pro CONFIG-=debug "VERSION=${{ env.VERSION }}"
-        nmake
-
-    # 缺少python3.dll
-    # fix formatter error, unicodedata _bz2
-    - name: add python3.dll
-      shell: powershell
-#      env:
-#        PYTHON_EMBEDDED_VERSION: ${{ env.PYTHON_EMBEDDED_VERSION }}
-      run: |
-        cd rdm\build\windows\installer\resources
-        wget "https://www.python.org/ftp/python/${{ env.PYTHON_EMBEDDED_VERSION }}/python-${{ env.PYTHON_EMBEDDED_VERSION }}-embed-amd64.zip" -outfile "python-embed.zip"
-        7z.exe x python-embed.zip python${{ env.PY_LIB_VERSION }}.zip python3.dll python${{ env.PY_LIB_VERSION }}.dll unicodedata.pyd _bz2.pyd
-        del python-embed.zip
-
-    # windeployqt
-    # https://doc.qt.io/qt-5/windows-deployment.html
-    # windeployqt.exe --force --qmldir ${{ env.QML2_IMPORT_PATH }} resp.exe
-    - name: package
-      id: package
-      shell: cmd
-      run: |
-        cd rdm
-        copy /y bin\windows\release\resp.exe build\windows\installer\resources\resp.exe
-        copy /y bin\windows\release\resp.exp build\windows\installer\resources\resp.exp
-        copy /y bin\windows\release\resp.lib build\windows\installer\resources\resp.lib
-        cd build\windows\installer\resources
-        windeployqt.exe --no-angle --no-opengl-sw --no-compiler-runtime --no-translations --release --force --qmldir ../../../../src/qml resp.exe
-        makensis.exe /V1 /DVERSION=${{ env.VERSION }} ../installer.nsi
-
-    - name: Upload Release Asset
-      id: upload-release-asset 
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        # upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-        upload_url: ${{ needs.create_release.outputs.upload_url }}
-        asset_path: rdm/build/windows/installer/resp-${{ env.VERSION }}.exe
-        asset_name: resp-${{ env.VERSION }}.exe
-        asset_content_type: application/vnd.microsoft.portable-executable
-
-  build_on_osx:
+  build_on_osx_arm64:
     needs: create_release
     # runs-on: macos-latest
-    runs-on: macos-12
+    runs-on: macos-13
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -263,11 +119,11 @@ jobs:
 
     # install QT   
     - name: install QT
-      uses: jurplel/install-qt-action@v3
+      uses: jurplel/install-qt-action@v4
       with: 
-        version: '5.15.1'
+        version: '5.15.2'
         modules: 'qtcharts'
-        setup-python: 'false'
+        # setup-python: 'false'
 
     - name: copy info.plist
       run: |
@@ -318,6 +174,7 @@ jobs:
       id: build
       run: |
         cd rdm/src
+        arch
         qmake resp.pro CONFIG-=debug "VERSION=${{ env.VERSION }}"
         make -s -j 8
 
@@ -349,5 +206,5 @@ jobs:
       with:
         upload_url: ${{ needs.create_release.outputs.upload_url }}
         asset_path: rdm/bin/osx/release/RESP.dmg
-        asset_name: RESP.dmg
+        asset_name: RESP_Arm64.dmg
         asset_content_type: application/dmg
