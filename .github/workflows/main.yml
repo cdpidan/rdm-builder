@@ -68,7 +68,7 @@ jobs:
   build_on_osx_arm64:
     needs: create_release
     # runs-on: macos-latest
-    runs-on: macos-13
+    runs-on: macos-14
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -121,7 +121,7 @@ jobs:
     - name: install QT
       uses: jurplel/install-qt-action@v4
       with: 
-        version: '5.15.2'
+        version: '5.15.16'
         modules: 'qtcharts'
         # setup-python: 'false'
 
