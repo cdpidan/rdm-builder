@@ -33,7 +33,9 @@ env:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   create_release:
-    runs-on: windows-2019
+    # This job only calls the GitHub Releases API; avoid the retired
+    # windows-2019 image so the workflow can be scheduled immediately.
+    runs-on: ubuntu-latest
     # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjobs_idoutputs
     # Map a step output to a job output
     outputs:
