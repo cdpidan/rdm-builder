@@ -33,47 +33,31 @@ env:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   create_release:
-    # This job only calls the GitHub Releases API; avoid the retired
-    # windows-2019 image so the workflow can be scheduled immediately.
+    # This job only calls the GitHub Releases API, so use a Linux runner.
     runs-on: ubuntu-latest
-    # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjobs_idoutputs
-    # Map a step output to a job output
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    permissions:
+      contents: write
     steps:
-      # - name: checkout
-      #   uses: actions/checkout@v2
-      #   with:
-      #     fetch-depth: 0
-
-      # delete old release
-      - uses: dev-drprasad/delete-tag-and-release@v0.2.1
-        with:
-          delete_release: true # default: false
-          tag_name: ${{ env.RDM_REF }}-weekly # tag name to delete
+      - name: Recreate weekly release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-        with:
-          tag_name: ${{ env.RDM_REF }}-weekly
-          release_name: v${{ env.RDM_REF }}-weekly
-          body: |
-            ${{ env.RDM_REF }}-weekly
-          draft: false
-          prerelease: true
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ env.RDM_REF }}-weekly
+        run: |
+          gh release delete "${RELEASE_TAG}" --yes || true
+          gh release create "${RELEASE_TAG}" \
+            --target "${GITHUB_SHA}" \
+            --title "v${RELEASE_TAG}" \
+            --notes "${RELEASE_TAG}" \
+            --prerelease
 
   build_on_osx_arm64:
     needs: create_release
-    # runs-on: macos-latest
-    runs-on: macos-14
+    runs-on: macos-15
+    permissions:
+      contents: write
 
     # Keep every native dependency and the application on the same
-    # architecture.  macos-14 is an Apple Silicon runner.
+    # architecture.  macos-15 is an Apple Silicon runner.
     env:
       CMAKE_OSX_ARCHITECTURES: arm64
       QMAKE_APPLE_DEVICE_ARCHS: arm64
@@ -81,7 +65,7 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         repository: uglide/RedisDesktopManager
         path: rdm
@@ -206,14 +190,10 @@ jobs:
         install_name_tool -change /Library/Frameworks/Python.framework/Versions/${python_version}/Python @rpath/Python.framework/Versions/${python_version}/Python ./RESP.app/Contents/MacOS/RESP
         otool -L ./RESP.app/Contents/MacOS/RESP
         macdeployqt ./RESP.app -qmldir=../../../src/qml -always-overwrite -dmg
+        mv RESP.dmg RESP_Arm64.dmg
 
     - name: Upload Release Asset
-      id: upload-release-asset 
-      uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ needs.create_release.outputs.upload_url }}
-        asset_path: rdm/bin/osx/release/RESP.dmg
-        asset_name: RESP_Arm64.dmg
-        asset_content_type: application/dmg
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        RELEASE_TAG: ${{ env.RDM_REF }}-weekly
+      run: gh release upload "${RELEASE_TAG}" rdm/bin/osx/release/RESP_Arm64.dmg --clobber
