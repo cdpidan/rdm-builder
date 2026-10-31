@@ -92,7 +92,6 @@ jobs:
     - name: build snappy
       run: |
         cd rdm/3rdparty/snappy
-        git submodule update --remote
         cmake -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} . && make
 
     - name: build brotli
