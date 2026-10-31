@@ -80,24 +80,24 @@ jobs:
     - name: build lz4
       run: |
         cd rdm/3rdparty/lz4/build/cmake
-        cmake -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} -DLZ4_BUNDLED_MODE=ON -DBUILD_SHARED_LIBS=ON
+        cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} -DLZ4_BUNDLED_MODE=ON -DBUILD_SHARED_LIBS=ON .
         ls
         make -s -j 8
 
     - name: build zstd
       run: |
         cd rdm/3rdparty/zstd/build/cmake
-        cmake -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} . && make
+        cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} . && make
 
     - name: build snappy
       run: |
         cd rdm/3rdparty/snappy
-        cmake -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} . && make
+        cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} . && make
 
     - name: build brotli
       run: |
         cd rdm/3rdparty/brotli
-        cmake -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
+        cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF .
         sudo cmake --build . --config Release --target install
 
 #     - name: setup python
