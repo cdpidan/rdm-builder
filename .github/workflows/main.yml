@@ -43,8 +43,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ env.RDM_REF }}-weekly
         run: |
-          gh release delete "${RELEASE_TAG}" --yes || true
-          gh release create "${RELEASE_TAG}" \
+          gh release delete "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --yes || true
+          gh release create "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
             --title "v${RELEASE_TAG}" \
             --notes "${RELEASE_TAG}" \
@@ -195,4 +195,4 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         RELEASE_TAG: ${{ env.RDM_REF }}-weekly
-      run: gh release upload "${RELEASE_TAG}" rdm/bin/osx/release/RESP_Arm64.dmg --clobber
+      run: gh release upload "${RELEASE_TAG}" rdm/bin/osx/release/RESP_Arm64.dmg --repo "${GITHUB_REPOSITORY}" --clobber
