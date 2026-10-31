@@ -70,6 +70,12 @@ jobs:
     # runs-on: macos-latest
     runs-on: macos-14
 
+    # Keep every native dependency and the application on the same
+    # architecture.  macos-14 is an Apple Silicon runner.
+    env:
+      CMAKE_OSX_ARCHITECTURES: arm64
+      QMAKE_APPLE_DEVICE_ARCHS: arm64
+
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
@@ -88,25 +94,25 @@ jobs:
     - name: build lz4
       run: |
         cd rdm/3rdparty/lz4/build/cmake
-        cmake -DLZ4_BUNDLED_MODE=ON -DBUILD_SHARED_LIBS=ON
+        cmake -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} -DLZ4_BUNDLED_MODE=ON -DBUILD_SHARED_LIBS=ON
         ls
         make -s -j 8
 
     - name: build zstd
       run: |
         cd rdm/3rdparty/zstd/build/cmake
-        cmake . && make
+        cmake -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} . && make
 
     - name: build snappy
       run: |
         cd rdm/3rdparty/snappy
         git submodule update --remote
-        cmake . && make
+        cmake -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} . && make
 
     - name: build brotli
       run: |
         cd rdm/3rdparty/brotli
-        cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
+        cmake -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
         sudo cmake --build . --config Release --target install
 
 #     - name: setup python
@@ -175,7 +181,7 @@ jobs:
       run: |
         cd rdm/src
         arch
-        qmake resp.pro CONFIG-=debug "VERSION=${{ env.VERSION }}"
+        qmake resp.pro CONFIG-=debug "VERSION=${{ env.VERSION }}" QMAKE_APPLE_DEVICE_ARCHS=${{ env.QMAKE_APPLE_DEVICE_ARCHS }}
         make -s -j 8
 
     - name: copy translations
@@ -192,8 +198,9 @@ jobs:
         cp -Rf py ./RESP.app/Contents/Resources/
         python_version=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
         echo ${python_version}
-        brew install python@${python_version}
-        cp -Rf /usr/local/Cellar/python@${python_version}/*/Frameworks/ ./RESP.app/Contents/Frameworks/
+        brew install "python@${python_version}" || brew install python
+        python_prefix=$(brew --prefix "python@${python_version}" 2>/dev/null || brew --prefix python)
+        cp -Rf "${python_prefix}/Frameworks/" ./RESP.app/Contents/Frameworks/
         install_name_tool -change /Library/Frameworks/Python.framework/Versions/${python_version}/Python @rpath/Python.framework/Versions/${python_version}/Python ./RESP.app/Contents/MacOS/RESP
         otool -L ./RESP.app/Contents/MacOS/RESP
         macdeployqt ./RESP.app -qmldir=../../../src/qml -always-overwrite -dmg
