@@ -192,6 +192,9 @@ jobs:
         echo "RESP links Python ${python_version}; bundling the matching framework"
         brew install "python@${python_version}"
         python_prefix=$(brew --prefix "python@${python_version}")
+        # macdeployqt may not have created Contents/Frameworks yet. Recreate
+        # the parent before copying the framework into the application bundle.
+        mkdir -p ./RESP.app/Contents/Frameworks
         rm -rf ./RESP.app/Contents/Frameworks/Python.framework
         # Homebrew exposes Python.framework through a symlink. Copy the
         # framework contents into the bundle so codesign does not see an
