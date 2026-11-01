@@ -242,9 +242,14 @@ jobs:
         [[ "${python_file_info}" == *arm64* ]]
         # macdeployqt and install_name_tool modify Mach-O files after the
         # build. Re-sign the complete bundle before macOS validates its pages.
-        codesign --force --verbose --sign - ./RESP.app/Contents/Frameworks/Python.framework
-        codesign --deep --force --verbose --sign - RESP.app
-        codesign --verify --deep --strict --verbose=2 RESP.app
+        python_framework_bundle=./RESP.app/Contents/Frameworks/Python.framework
+        codesign --force --verbose --sign - "${python_framework_bundle}"
+        # macdeployqt has already signed the nested Qt code. Sign and verify
+        # the app itself without --deep; deep traversal follows framework
+        # symlinks and can report the valid bundle as a missing RESP.app.
+        codesign --force --verbose --sign - RESP.app
+        codesign --verify --strict --verbose=2 "${python_framework_bundle}"
+        codesign --verify --strict --verbose=2 RESP.app
         hdiutil create -volname RESP -srcfolder RESP.app -ov -format UDZO RESP.dmg
         mv RESP.dmg RESP_Arm64.dmg
 
