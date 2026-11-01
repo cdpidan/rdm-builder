@@ -204,12 +204,13 @@ jobs:
         echo "macdeployqt finished; restoring Python.framework"
         mv "${python_framework_tmp}" ./RESP.app/Contents/Frameworks/Python.framework
         echo "Validating deployed Qt framework"
-        test -f ./RESP.app/Contents/Frameworks/QtCore.framework/Versions/5/QtCore
+        qt_core_binary=$(find ./RESP.app/Contents/Frameworks/QtCore.framework -type f -name QtCore -print -quit)
+        test -n "${qt_core_binary}"
         # Do not publish a bundle whose executable and Python framework have
         # different architectures. macOS otherwise aborts at launch in dyld.
         test "$(file -b RESP.app/Contents/MacOS/RESP)" = *arm64*
         test "$(file -b RESP.app/Contents/Frameworks/Python.framework/Versions/${python_version}/Python)" = *arm64*
-        file RESP.app/Contents/Frameworks/QtCore.framework/Versions/5/QtCore
+        file "${qt_core_binary}"
         hdiutil create -volname RESP -srcfolder RESP.app -ov -format UDZO RESP.dmg
         mv RESP.dmg RESP_Arm64.dmg
 
