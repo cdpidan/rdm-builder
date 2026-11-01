@@ -114,7 +114,7 @@ jobs:
       with: 
         # The project uses Qt 5 APIs (for example QRegExp); do not resolve
         # the latest Qt release, which currently installs Qt 6.
-        version: '5.15.16'
+        version: '5.15.2'
         modules: 'qtcharts'
         # setup-python: 'false'
 
