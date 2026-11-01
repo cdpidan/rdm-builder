@@ -192,7 +192,12 @@ jobs:
         echo "RESP links Python ${python_version}; bundling the matching framework"
         brew install "python@${python_version}"
         python_prefix=$(brew --prefix "python@${python_version}")
-        cp -Rf "${python_prefix}/Frameworks/" ./RESP.app/Contents/Frameworks/
+        rm -rf ./RESP.app/Contents/Frameworks/Python.framework
+        # Homebrew exposes Python.framework through a symlink. Copy the
+        # framework contents into the bundle so codesign does not see an
+        # external or malformed nested bundle.
+        ditto "${python_prefix}/Frameworks/Python.framework" ./RESP.app/Contents/Frameworks/Python.framework
+        test ! -L ./RESP.app/Contents/Frameworks/Python.framework
         test -f "./RESP.app/Contents/Frameworks/Python.framework/Versions/${python_version}/Python"
         install_name_tool -change "${python_dependency}" "@rpath/Python.framework/Versions/${python_version}/Python" ./RESP.app/Contents/MacOS/RESP
         otool -L ./RESP.app/Contents/MacOS/RESP
