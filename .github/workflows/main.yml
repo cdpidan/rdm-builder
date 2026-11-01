@@ -183,18 +183,16 @@ jobs:
         cd rdm/bin/osx/release
         zip -q -r release.zip .
         cp -Rf py ./RESP.app/Contents/Resources/
-        python_version=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
-        echo ${python_version}
-        brew install "python@${python_version}" || brew install python
-        python_prefix=$(brew --prefix "python@${python_version}" 2>/dev/null || brew --prefix python)
-        cp -Rf "${python_prefix}/Frameworks/" ./RESP.app/Contents/Frameworks/
         python_dependency=$(otool -L ./RESP.app/Contents/MacOS/RESP | awk 'index($0, "Python.framework/Versions/") { print $1; exit }')
         if [ -z "${python_dependency}" ]; then
           echo "RESP does not link a Python.framework" >&2
           exit 1
         fi
-        linked_python_version=$(printf '%s\n' "${python_dependency}" | sed -E 's#.*Python.framework/Versions/([^/]+)/Python#\1#')
-        echo "RESP links Python ${linked_python_version}; bundling Python ${python_version}"
+        python_version=$(printf '%s\n' "${python_dependency}" | sed -E 's#.*Python.framework/Versions/([^/]+)/Python#\1#')
+        echo "RESP links Python ${python_version}; bundling the matching framework"
+        brew install "python@${python_version}"
+        python_prefix=$(brew --prefix "python@${python_version}")
+        cp -Rf "${python_prefix}/Frameworks/" ./RESP.app/Contents/Frameworks/
         test -f "./RESP.app/Contents/Frameworks/Python.framework/Versions/${python_version}/Python"
         install_name_tool -change "${python_dependency}" "@rpath/Python.framework/Versions/${python_version}/Python" ./RESP.app/Contents/MacOS/RESP
         otool -L ./RESP.app/Contents/MacOS/RESP
