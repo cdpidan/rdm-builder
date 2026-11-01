@@ -188,7 +188,15 @@ jobs:
         brew install "python@${python_version}" || brew install python
         python_prefix=$(brew --prefix "python@${python_version}" 2>/dev/null || brew --prefix python)
         cp -Rf "${python_prefix}/Frameworks/" ./RESP.app/Contents/Frameworks/
-        install_name_tool -change /Library/Frameworks/Python.framework/Versions/${python_version}/Python @rpath/Python.framework/Versions/${python_version}/Python ./RESP.app/Contents/MacOS/RESP
+        python_dependency=$(otool -L ./RESP.app/Contents/MacOS/RESP | awk '/Python.framework\/Versions\/[^/]+\/Python/ { print $1; exit }')
+        if [ -z "${python_dependency}" ]; then
+          echo "RESP does not link a Python.framework" >&2
+          exit 1
+        fi
+        linked_python_version=$(printf '%s\n' "${python_dependency}" | sed -E 's#.*Python.framework/Versions/([^/]+)/Python#\1#')
+        echo "RESP links Python ${linked_python_version}; bundling Python ${python_version}"
+        test -f "./RESP.app/Contents/Frameworks/Python.framework/Versions/${python_version}/Python"
+        install_name_tool -change "${python_dependency}" "@rpath/Python.framework/Versions/${python_version}/Python" ./RESP.app/Contents/MacOS/RESP
         otool -L ./RESP.app/Contents/MacOS/RESP
         macdeployqt ./RESP.app -qmldir=../../../src/qml -always-overwrite -dmg
         # Do not publish a bundle whose executable and Python framework have
