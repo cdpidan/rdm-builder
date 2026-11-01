@@ -107,15 +107,15 @@ jobs:
 #         brew link --overwrite python@3.9
 #         brew link python3
 
-    # install QT   
-    - name: install QT
-      uses: jurplel/install-qt-action@v4
-      with: 
-        # The project uses Qt 5 APIs (for example QRegExp); do not resolve
-        # the latest Qt release, which currently installs Qt 6.
-        version: '5.15.16'
-        modules: 'qtcharts'
-        # setup-python: 'false'
+    # Install Qt 5 from the ARM64 Homebrew prefix. The public aqt repository
+    # does not provide a macOS desktop binary for the requested 5.15.16 spec.
+    - name: install Qt 5
+      run: |
+        brew install qt@5
+        qt_prefix="$(brew --prefix qt@5)"
+        echo "${qt_prefix}/bin" >> "${GITHUB_PATH}"
+        echo "QTDIR=${qt_prefix}" >> "${GITHUB_ENV}"
+        file "${qt_prefix}/bin/qmake"
 
     - name: copy info.plist
       run: |
