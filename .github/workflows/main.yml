@@ -196,10 +196,12 @@ jobs:
         # the parent before copying the framework into the application bundle.
         mkdir -p ./RESP.app/Contents/Frameworks
         rm -rf ./RESP.app/Contents/Frameworks/Python.framework
-        # Homebrew exposes Python.framework through a symlink. Copy the
-        # framework contents into the bundle so codesign does not see an
-        # external or malformed nested bundle.
-        cp -RLf "${python_prefix}/Frameworks/Python.framework" ./RESP.app/Contents/Frameworks/Python.framework
+        # Resolve Homebrew's outer symlink, but preserve the framework's
+        # internal Versions/Current and top-level binary symlinks. Following
+        # every symlink turns the framework into a non-standard bundle that
+        # codesign rejects as "bundle format unrecognized".
+        python_framework_source="$(cd "${python_prefix}/Frameworks/Python.framework" && pwd -P)"
+        cp -Rf "${python_framework_source}" ./RESP.app/Contents/Frameworks/Python.framework
         test ! -L ./RESP.app/Contents/Frameworks/Python.framework
         test -f "./RESP.app/Contents/Frameworks/Python.framework/Versions/${python_version}/Python"
         install_name_tool -change "${python_dependency}" "@rpath/Python.framework/Versions/${python_version}/Python" ./RESP.app/Contents/MacOS/RESP
