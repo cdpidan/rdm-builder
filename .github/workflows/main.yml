@@ -52,16 +52,14 @@ jobs:
 
   build_on_osx_arm64:
     needs: create_release
+    # Build the distributed macOS application natively for Apple Silicon.
     runs-on: macos-15
     permissions:
       contents: write
 
-    # Qt 5.15.2's public macOS package is clang_64 (x86_64). Keep all
-    # native dependencies and the application aligned with that package;
-    # macOS 15 ARM runners execute these tools through Rosetta.
     env:
-      CMAKE_OSX_ARCHITECTURES: x86_64
-      QMAKE_APPLE_DEVICE_ARCHS: x86_64
+      CMAKE_OSX_ARCHITECTURES: arm64
+      QMAKE_APPLE_DEVICE_ARCHS: arm64
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -115,7 +113,7 @@ jobs:
       with: 
         # The project uses Qt 5 APIs (for example QRegExp); do not resolve
         # the latest Qt release, which currently installs Qt 6.
-        version: '5.15.2'
+        version: '5.15.16'
         modules: 'qtcharts'
         # setup-python: 'false'
 
@@ -171,6 +169,7 @@ jobs:
         arch
         qmake resp.pro CONFIG-=debug "VERSION=${{ env.VERSION }}" QMAKE_APPLE_DEVICE_ARCHS=${{ env.QMAKE_APPLE_DEVICE_ARCHS }}
         make -s -j 8
+        file ../bin/osx/release/RESP.app/Contents/MacOS/RESP
 
     - name: copy translations
       run: |
@@ -192,6 +191,11 @@ jobs:
         install_name_tool -change /Library/Frameworks/Python.framework/Versions/${python_version}/Python @rpath/Python.framework/Versions/${python_version}/Python ./RESP.app/Contents/MacOS/RESP
         otool -L ./RESP.app/Contents/MacOS/RESP
         macdeployqt ./RESP.app -qmldir=../../../src/qml -always-overwrite -dmg
+        # Do not publish a bundle whose executable and Python framework have
+        # different architectures. macOS otherwise aborts at launch in dyld.
+        test "$(file -b RESP.app/Contents/MacOS/RESP)" = *arm64*
+        test "$(file -b RESP.app/Contents/Frameworks/Python.framework/Versions/${python_version}/Python)" = *arm64*
+        file RESP.app/Contents/Frameworks/QtCore.framework/Versions/5/QtCore
         mv RESP.dmg RESP_Arm64.dmg
 
     - name: Upload Release Asset
