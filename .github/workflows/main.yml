@@ -221,6 +221,10 @@ jobs:
         echo "Python architecture: ${python_file_info}"
         [[ "${app_file_info}" == *arm64* ]]
         [[ "${python_file_info}" == *arm64* ]]
+        # macdeployqt and install_name_tool modify Mach-O files after the
+        # build. Re-sign the complete bundle before macOS validates its pages.
+        codesign --deep --force --verbose --sign - RESP.app
+        codesign --verify --deep --strict --verbose=2 RESP.app
         hdiutil create -volname RESP -srcfolder RESP.app -ov -format UDZO RESP.dmg
         mv RESP.dmg RESP_Arm64.dmg
 
