@@ -198,7 +198,10 @@ jobs:
         test -f "./RESP.app/Contents/Frameworks/Python.framework/Versions/${python_version}/Python"
         install_name_tool -change "${python_dependency}" "@rpath/Python.framework/Versions/${python_version}/Python" ./RESP.app/Contents/MacOS/RESP
         otool -L ./RESP.app/Contents/MacOS/RESP
+        python_framework_tmp="$(mktemp -d)/Python.framework"
+        mv ./RESP.app/Contents/Frameworks/Python.framework "${python_framework_tmp}"
         macdeployqt ./RESP.app -qmldir=../../../src/qml -always-overwrite -dmg
+        mv "${python_framework_tmp}" ./RESP.app/Contents/Frameworks/Python.framework
         # Do not publish a bundle whose executable and Python framework have
         # different architectures. macOS otherwise aborts at launch in dyld.
         test "$(file -b RESP.app/Contents/MacOS/RESP)" = *arm64*
