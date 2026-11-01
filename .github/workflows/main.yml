@@ -204,7 +204,10 @@ jobs:
         echo "macdeployqt finished; restoring Python.framework"
         mv "${python_framework_tmp}" ./RESP.app/Contents/Frameworks/Python.framework
         echo "Validating deployed Qt framework"
-        qt_core_binary=$(find ./RESP.app/Contents/Frameworks/QtCore.framework -type f -name QtCore -print -quit)
+        qt_core_binary=$(find -L ./RESP.app/Contents/Frameworks/QtCore.framework -type f -name QtCore -print -quit)
+        if [ -z "${qt_core_binary}" ] && [ -e ./RESP.app/Contents/Frameworks/QtCore.framework/Versions/5/QtCore ]; then
+          qt_core_binary=./RESP.app/Contents/Frameworks/QtCore.framework/Versions/5/QtCore
+        fi
         test -n "${qt_core_binary}"
         # Do not publish a bundle whose executable and Python framework have
         # different architectures. macOS otherwise aborts at launch in dyld.
