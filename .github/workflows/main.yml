@@ -222,6 +222,21 @@ jobs:
         fi
         echo "macdeployqt finished; restoring Python.framework"
         mv "${python_framework_tmp}" ./RESP.app/Contents/Frameworks/Python.framework
+        # Qt's Cocoa platform plugin is required before QApplication can be
+        # constructed.  macdeployqt has changed the plugin directory layout
+        # between Qt 5 releases, so make the expected bundle location
+        # explicit instead of publishing a bundle that only fails at launch.
+        qt_platform_plugin=$(find ./RESP.app/Contents -type f -name libqcocoa.dylib -print -quit)
+        if [ -z "${qt_platform_plugin}" ]; then
+          qt_platform_source="${QTDIR}/plugins/platforms/libqcocoa.dylib"
+          test -f "${qt_platform_source}"
+          mkdir -p ./RESP.app/Contents/PlugIns/platforms
+          ditto "${qt_platform_source}" ./RESP.app/Contents/PlugIns/platforms/libqcocoa.dylib
+          qt_platform_plugin=./RESP.app/Contents/PlugIns/platforms/libqcocoa.dylib
+        fi
+        test -f "${qt_platform_plugin}"
+        echo "Qt Cocoa platform plugin: ${qt_platform_plugin}"
+        file "${qt_platform_plugin}"
         echo "Validating deployed Qt framework"
         qt_core_binary=$(find -L ./RESP.app/Contents/Frameworks/QtCore.framework -type f -name QtCore -print -quit)
         if [ -z "${qt_core_binary}" ] && [ -e ./RESP.app/Contents/Frameworks/QtCore.framework/Versions/5/QtCore ]; then
