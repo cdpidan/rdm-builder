@@ -215,8 +215,12 @@ jobs:
         fi
         # Do not publish a bundle whose executable and Python framework have
         # different architectures. macOS otherwise aborts at launch in dyld.
-        test "$(file -b RESP.app/Contents/MacOS/RESP)" = *arm64*
-        test "$(file -b RESP.app/Contents/Frameworks/Python.framework/Versions/${python_version}/Python)" = *arm64*
+        app_file_info="$(file -b RESP.app/Contents/MacOS/RESP)"
+        python_file_info="$(file -b RESP.app/Contents/Frameworks/Python.framework/Versions/${python_version}/Python)"
+        echo "RESP architecture: ${app_file_info}"
+        echo "Python architecture: ${python_file_info}"
+        [[ "${app_file_info}" == *arm64* ]]
+        [[ "${python_file_info}" == *arm64* ]]
         hdiutil create -volname RESP -srcfolder RESP.app -ov -format UDZO RESP.dmg
         mv RESP.dmg RESP_Arm64.dmg
 
