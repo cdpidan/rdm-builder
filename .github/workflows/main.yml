@@ -244,9 +244,19 @@ jobs:
         # build. Re-sign the complete bundle before macOS validates its pages.
         python_framework_bundle=./RESP.app/Contents/Frameworks/Python.framework
         codesign --force --verbose --sign - "${python_framework_bundle}"
-        # macdeployqt has already signed the nested Qt code. Sign and verify
-        # the app itself without --deep; deep traversal follows framework
-        # symlinks and can report the valid bundle as a missing RESP.app.
+        # Sign nested Mach-O files explicitly. macdeployqt copies Qt code but
+        # does not guarantee that every dylib is signed, while codesign
+        # --deep follows Python framework symlinks unreliably on this runner.
+        while IFS= read -r -d '' macho_file; do
+          if file -b "${macho_file}" | grep -q 'Mach-O'; then
+            codesign --force --verbose --sign - "${macho_file}"
+          fi
+        done < <(find ./RESP.app/Contents -type f -print0)
+        while IFS= read -r -d '' framework_bundle; do
+          codesign --force --verbose --sign - "${framework_bundle}"
+        done < <(find ./RESP.app/Contents -type d -name '*.framework' -print0)
+        # Sign and verify the app itself without --deep; all nested code has
+        # already been signed above.
         codesign --force --verbose --sign - RESP.app
         codesign --verify --strict --verbose=2 RESP.app
         hdiutil create -volname RESP -srcfolder RESP.app -ov -format UDZO RESP.dmg
