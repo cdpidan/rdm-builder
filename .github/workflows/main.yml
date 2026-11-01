@@ -188,7 +188,7 @@ jobs:
         brew install "python@${python_version}" || brew install python
         python_prefix=$(brew --prefix "python@${python_version}" 2>/dev/null || brew --prefix python)
         cp -Rf "${python_prefix}/Frameworks/" ./RESP.app/Contents/Frameworks/
-        python_dependency=$(otool -L ./RESP.app/Contents/MacOS/RESP | awk '/Python.framework\/Versions\/[^/]+\/Python/ { print $1; exit }')
+        python_dependency=$(otool -L ./RESP.app/Contents/MacOS/RESP | awk 'index($0, "Python.framework/Versions/") { print $1; exit }')
         if [ -z "${python_dependency}" ]; then
           echo "RESP does not link a Python.framework" >&2
           exit 1
