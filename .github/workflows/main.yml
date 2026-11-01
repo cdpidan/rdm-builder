@@ -112,7 +112,9 @@ jobs:
     - name: install QT
       uses: jurplel/install-qt-action@v4
       with: 
-        # version: '5.15.2'
+        # The project uses Qt 5 APIs (for example QRegExp); do not resolve
+        # the latest Qt release, which currently installs Qt 6.
+        version: '5.15.16'
         modules: 'qtcharts'
         # setup-python: 'false'
 
