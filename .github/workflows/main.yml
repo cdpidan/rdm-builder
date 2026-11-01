@@ -198,8 +198,15 @@ jobs:
         otool -L ./RESP.app/Contents/MacOS/RESP
         python_framework_tmp="$(mktemp -d)/Python.framework"
         mv ./RESP.app/Contents/Frameworks/Python.framework "${python_framework_tmp}"
+        set +e
         macdeployqt ./RESP.app -always-overwrite -verbose=2
+        macdeployqt_status=$?
+        set -e
+        if [ "${macdeployqt_status}" -ne 0 ]; then
+          echo "macdeployqt returned ${macdeployqt_status}; validating the deployed bundle before continuing"
+        fi
         mv "${python_framework_tmp}" ./RESP.app/Contents/Frameworks/Python.framework
+        test -f ./RESP.app/Contents/Frameworks/QtCore.framework/Versions/5/QtCore
         # Do not publish a bundle whose executable and Python framework have
         # different architectures. macOS otherwise aborts at launch in dyld.
         test "$(file -b RESP.app/Contents/MacOS/RESP)" = *arm64*
