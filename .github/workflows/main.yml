@@ -56,11 +56,12 @@ jobs:
     permissions:
       contents: write
 
-    # Keep every native dependency and the application on the same
-    # architecture.  macos-15 is an Apple Silicon runner.
+    # Qt 5.15.2's public macOS package is clang_64 (x86_64). Keep all
+    # native dependencies and the application aligned with that package;
+    # macOS 15 ARM runners execute these tools through Rosetta.
     env:
-      CMAKE_OSX_ARCHITECTURES: arm64
-      QMAKE_APPLE_DEVICE_ARCHS: arm64
+      CMAKE_OSX_ARCHITECTURES: x86_64
+      QMAKE_APPLE_DEVICE_ARCHS: x86_64
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
