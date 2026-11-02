@@ -242,10 +242,19 @@ jobs:
         fi
         # Keep plugin discovery independent of Qt's version-specific defaults
         # and of the directory layout chosen by macdeployqt.
+        mkdir -p ./RESP.app/Contents/Resources
         printf '%s\n' '[Paths]' 'Plugins = PlugIns' 'Libraries = Frameworks' > ./RESP.app/Contents/Resources/qt.conf
         test -f "${qt_platform_plugin}"
         echo "Qt Cocoa platform plugin: ${qt_platform_plugin}"
         file "${qt_platform_plugin}"
+        [[ "$(file -b "${qt_platform_plugin}")" == *arm64* ]]
+        # A plugin loaded from Contents/PlugIns must be able to resolve the
+        # Qt frameworks one directory tree above it, even when macdeployqt
+        # did not add the loader path itself.
+        if ! otool -l "${qt_platform_plugin}" | grep -A2 -q '@loader_path/../../Frameworks'; then
+          install_name_tool -add_rpath '@loader_path/../../Frameworks' "${qt_platform_plugin}" || true
+        fi
+        otool -L "${qt_platform_plugin}"
         echo "Validating deployed Qt framework"
         qt_core_binary=$(find -L ./RESP.app/Contents/Frameworks/QtCore.framework -type f -name QtCore -print -quit)
         if [ -z "${qt_core_binary}" ] && [ -e ./RESP.app/Contents/Frameworks/QtCore.framework/Versions/5/QtCore ]; then
