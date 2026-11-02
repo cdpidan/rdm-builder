@@ -217,6 +217,16 @@ jobs:
         fi
         test ! -L ./RESP.app/Contents/Frameworks/Python.framework
         test -f "./RESP.app/Contents/Frameworks/Python.framework/Versions/${python_version}/Python"
+        # Ship the embedded interpreter runtime only. The framework copied
+        # from Homebrew also contains headers, ensurepip, IDLE and the full
+        # CPython test suite; RESP never imports those components and they add
+        # tens of megabytes to the release image.
+        python_runtime_dir="./RESP.app/Contents/Frameworks/Python.framework/Versions/${python_version}"
+        rm -rf "${python_runtime_dir}/Headers" "${python_runtime_dir}/include" \
+          "${python_runtime_dir}/share" "${python_runtime_dir}/lib/python${python_version}/test" \
+          "${python_runtime_dir}/lib/python${python_version}/idlelib" \
+          "${python_runtime_dir}/lib/python${python_version}/ensurepip" \
+          "${python_runtime_dir}/lib/python${python_version}/__pycache__"
         install_name_tool -change "${python_dependency}" "@rpath/Python.framework/Versions/${python_version}/Python" ./RESP.app/Contents/MacOS/RESP
         otool -L ./RESP.app/Contents/MacOS/RESP
         python_framework_tmp="$(mktemp -d)/Python.framework"
