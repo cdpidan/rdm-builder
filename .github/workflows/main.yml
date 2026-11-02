@@ -63,6 +63,10 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+    - uses: actions/checkout@v4
+      with:
+        path: builder
+
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v4
       with:
@@ -217,7 +221,10 @@ jobs:
         otool -L ./RESP.app/Contents/MacOS/RESP
         python_framework_tmp="$(mktemp -d)/Python.framework"
         mv ./RESP.app/Contents/Frameworks/Python.framework "${python_framework_tmp}"
-        if ! macdeployqt ./RESP.app -always-overwrite -verbose=2; then
+        # The UI is embedded in the executable, but Qt Quick's imported QML
+        # modules are not. Scan the sources to deploy their QML and plugins.
+        test -d "${GITHUB_WORKSPACE}/rdm/src/qml"
+        if ! macdeployqt ./RESP.app -qmldir="${GITHUB_WORKSPACE}/rdm/src/qml" -always-overwrite -verbose=2; then
           echo "macdeployqt returned a non-zero status; validating the deployed bundle before continuing"
         fi
         echo "macdeployqt finished; restoring Python.framework"
@@ -243,7 +250,18 @@ jobs:
         # Keep plugin discovery independent of Qt's version-specific defaults
         # and of the directory layout chosen by macdeployqt.
         mkdir -p ./RESP.app/Contents/Resources
-        printf '%s\n' '[Paths]' 'Plugins = PlugIns' 'Libraries = Frameworks' > ./RESP.app/Contents/Resources/qt.conf
+        printf '%s\n' '[Paths]' 'Plugins = PlugIns' 'Libraries = Frameworks' 'Qml2Imports = Resources/qml' > ./RESP.app/Contents/Resources/qt.conf
+        # These imports are required by the embedded QML UI. A runner's Homebrew
+        # installation must not hide missing modules in the release bundle.
+        for qml_module in QtQuick.2 QtQuick/Layouts QtQuick/Controls.2 \
+          QtQuick/Controls QtQuick/Controls/Styles QtQml/Models.2 \
+          QtQuick/Window.2 Qt/labs/settings Qt/labs/platform \
+          Qt/labs/qmlmodels QtQuick/Dialogs QtCharts; do
+          test -f "./RESP.app/Contents/Resources/qml/${qml_module}/qmldir" || {
+            echo "Missing bundled QML module: ${qml_module}" >&2
+            exit 1
+          }
+        done
         test -f "${qt_platform_plugin}"
         echo "Qt Cocoa platform plugin: ${qt_platform_plugin}"
         file "${qt_platform_plugin}"
@@ -313,10 +331,13 @@ jobs:
     # codesign and hdiutil cannot detect.
     - name: Smoke test packaged macOS app
       run: |
+        window_probe="$(mktemp -d)/check-macos-window"
+        swiftc "${GITHUB_WORKSPACE}/builder/.github/scripts/check-macos-window.swift" -o "${window_probe}"
         cd rdm/bin/osx/release
         smoke_log=$(mktemp)
-        QT_DEBUG_PLUGINS=1 ./RESP.app/Contents/MacOS/RESP >"${smoke_log}" 2>&1 &
+        QT_DEBUG_PLUGINS=1 QML_IMPORT_TRACE=1 ./RESP.app/Contents/MacOS/RESP >"${smoke_log}" 2>&1 &
         app_pid=$!
+        trap 'kill "${app_pid}" 2>/dev/null || true' EXIT
         app_status=0
         for attempt in $(seq 1 20); do
           if ! kill -0 "${app_pid}" 2>/dev/null; then
@@ -330,6 +351,16 @@ jobs:
           fi
           sleep 1
         done
+        if grep -E 'QQmlApplicationEngine failed to load component|module ".*" is not installed|Cannot update palette\. Root object is not loaded\.' "${smoke_log}"; then
+          cat "${smoke_log}"
+          echo "RESP failed to create its QML interface" >&2
+          exit 1
+        fi
+        if ! "${window_probe}" "${app_pid}"; then
+          cat "${smoke_log}"
+          echo "RESP is running but has no visible application window" >&2
+          exit 1
+        fi
         kill "${app_pid}" 2>/dev/null || true
         set +e
         wait "${app_pid}"
@@ -341,7 +372,7 @@ jobs:
           echo "RESP failed smoke test with status ${app_status}" >&2
           exit 1
         fi
-        echo "RESP remained running for 20 seconds; packaged app startup passed"
+        echo "RESP remained running for 20 seconds and created a visible window; packaged app startup passed"
 
     - name: Upload Release Asset
       env:
