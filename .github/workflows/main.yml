@@ -226,14 +226,23 @@ jobs:
         # constructed.  macdeployqt has changed the plugin directory layout
         # between Qt 5 releases, so make the expected bundle location
         # explicit instead of publishing a bundle that only fails at launch.
-        qt_platform_plugin=$(find ./RESP.app/Contents -type f -name libqcocoa.dylib -print -quit)
-        if [ -z "${qt_platform_plugin}" ]; then
-          qt_platform_source="${QTDIR}/plugins/platforms/libqcocoa.dylib"
+        # Qt resolves macOS plugins relative to Contents/PlugIns.  Do not
+        # merely check for a plugin somewhere in the bundle: a previous
+        # macdeployqt layout could leave libqcocoa in a directory that Qt
+        # never searches at runtime.
+        qt_platform_plugin=./RESP.app/Contents/PlugIns/platforms/libqcocoa.dylib
+        mkdir -p "$(dirname "${qt_platform_plugin}")"
+        if [ ! -f "${qt_platform_plugin}" ]; then
+          qt_platform_source=$(find ./RESP.app/Contents "${QTDIR}/plugins" -type f -name libqcocoa.dylib -print -quit 2>/dev/null)
+          if [ -z "${qt_platform_source}" ]; then
+            qt_platform_source="${QTDIR}/plugins/platforms/libqcocoa.dylib"
+          fi
           test -f "${qt_platform_source}"
-          mkdir -p ./RESP.app/Contents/PlugIns/platforms
-          ditto "${qt_platform_source}" ./RESP.app/Contents/PlugIns/platforms/libqcocoa.dylib
-          qt_platform_plugin=./RESP.app/Contents/PlugIns/platforms/libqcocoa.dylib
+          ditto "${qt_platform_source}" "${qt_platform_plugin}"
         fi
+        # Keep plugin discovery independent of Qt's version-specific defaults
+        # and of the directory layout chosen by macdeployqt.
+        printf '%s\n' '[Paths]' 'Plugins = PlugIns' 'Libraries = Frameworks' > ./RESP.app/Contents/Resources/qt.conf
         test -f "${qt_platform_plugin}"
         echo "Qt Cocoa platform plugin: ${qt_platform_plugin}"
         file "${qt_platform_plugin}"
