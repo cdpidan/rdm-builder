@@ -248,6 +248,19 @@ jobs:
         echo "Qt Cocoa platform plugin: ${qt_platform_plugin}"
         file "${qt_platform_plugin}"
         [[ "$(file -b "${qt_platform_plugin}")" == *arm64* ]]
+        # macdeployqt copies libbrotlidec but can miss its Brotli common
+        # dependency when Brotli was built from the repository. Resolve the
+        # library from the build/install locations and put the exact dylib
+        # name requested by libbrotlidec into the app bundle.
+        brotli_common_source=$(find ../../../3rdparty/brotli /usr/local/lib /opt/homebrew/lib \
+          -type f -o -type l 2>/dev/null | grep '/libbrotlicommon.*\.dylib$' | head -1)
+        if [ -z "${brotli_common_source}" ]; then
+          echo "Could not locate libbrotlicommon for the packaged Brotli library" >&2
+          exit 1
+        fi
+        ditto "${brotli_common_source}" ./RESP.app/Contents/Frameworks/libbrotlicommon.1.dylib
+        install_name_tool -id '@rpath/libbrotlicommon.1.dylib' ./RESP.app/Contents/Frameworks/libbrotlicommon.1.dylib
+        test -f ./RESP.app/Contents/Frameworks/libbrotlicommon.1.dylib
         # A plugin loaded from Contents/PlugIns must be able to resolve the
         # Qt frameworks one directory tree above it, even when macdeployqt
         # did not add the loader path itself.
