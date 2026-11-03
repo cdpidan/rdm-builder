@@ -83,19 +83,19 @@ jobs:
     - name: build lz4
       run: |
         cd rdm/3rdparty/lz4/build/cmake
-        cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} -DLZ4_BUNDLED_MODE=ON -DBUILD_SHARED_LIBS=ON .
+        cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_C_FLAGS_MINSIZEREL=-Os -DLZ4_BUNDLED_MODE=ON -DBUILD_SHARED_LIBS=ON .
         ls
         make -s -j 8
 
     - name: build zstd
       run: |
         cd rdm/3rdparty/zstd/build/cmake
-        cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} . && make
+        cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_C_FLAGS_MINSIZEREL=-Os . && make
 
     - name: build snappy
       run: |
         cd rdm/3rdparty/snappy
-        cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF . && make
+        cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_OSX_ARCHITECTURES=${{ env.CMAKE_OSX_ARCHITECTURES }} -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_CXX_FLAGS_MINSIZEREL=-Os -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF . && make
 
     - name: build brotli
       run: |
@@ -171,7 +171,7 @@ jobs:
       run: |
         cd rdm/src
         arch
-        qmake resp.pro CONFIG-=debug "VERSION=${{ env.VERSION }}" QMAKE_APPLE_DEVICE_ARCHS=${{ env.QMAKE_APPLE_DEVICE_ARCHS }}
+        qmake resp.pro CONFIG-=debug CONFIG+=release "VERSION=${{ env.VERSION }}" QMAKE_APPLE_DEVICE_ARCHS=${{ env.QMAKE_APPLE_DEVICE_ARCHS }} QMAKE_CFLAGS_RELEASE+=-Os QMAKE_CXXFLAGS_RELEASE+=-Os
         make -s -j 8
         file ../bin/osx/release/RESP.app/Contents/MacOS/RESP
 
@@ -314,6 +314,14 @@ jobs:
         echo "Python architecture: ${python_file_info}"
         [[ "${app_file_info}" == *arm64* ]]
         [[ "${python_file_info}" == *arm64* ]]
+        # Remove local symbols from every bundled Mach-O before signing. This
+        # keeps crash symbols out of the distributable while preserving the
+        # exported symbols required by dyld and Qt plugin loading.
+        while IFS= read -r -d '' macho_file; do
+          if file -b "${macho_file}" | grep -q 'Mach-O'; then
+            strip -x "${macho_file}"
+          fi
+        done < <(find ./RESP.app/Contents -type f -print0)
         # macdeployqt and install_name_tool modify Mach-O files after the
         # build. Re-sign the complete bundle before macOS validates its pages.
         python_framework_bundle=./RESP.app/Contents/Frameworks/Python.framework
@@ -333,7 +341,7 @@ jobs:
         # already been signed above.
         codesign --force --verbose --sign - RESP.app
         codesign --verify --strict --verbose=2 RESP.app
-        hdiutil create -volname RESP -srcfolder RESP.app -ov -format UDZO RESP.dmg
+        hdiutil create -volname RESP -srcfolder RESP.app -ov -format UDZO -imagekey zlib-level=9 RESP.dmg
         mv RESP.dmg RESP_Arm64.dmg
 
     # Run the bundled executable on the macOS runner before publishing it.
