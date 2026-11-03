@@ -226,6 +226,7 @@ jobs:
           "${python_runtime_dir}/share" "${python_runtime_dir}/lib/python${python_version}/test" \
           "${python_runtime_dir}/lib/python${python_version}/idlelib" \
           "${python_runtime_dir}/lib/python${python_version}/ensurepip" \
+          "${python_runtime_dir}/lib/python${python_version}/pydoc_data" \
           "${python_runtime_dir}/lib/python${python_version}/__pycache__"
         install_name_tool -change "${python_dependency}" "@rpath/Python.framework/Versions/${python_version}/Python" ./RESP.app/Contents/MacOS/RESP
         otool -L ./RESP.app/Contents/MacOS/RESP
@@ -328,6 +329,12 @@ jobs:
         if ! grep -R -E -q 'QtQuick\.VirtualKeyboard|QtVirtualKeyboard' "${GITHUB_WORKSPACE}/rdm/src/qml" "${GITHUB_WORKSPACE}/rdm/src"; then
           rm -rf ./RESP.app/Contents/Frameworks/QtVirtualKeyboard.framework
           find ./RESP.app/Contents/PlugIns ./RESP.app/Contents/Resources/qml -iname '*virtualkeyboard*' -exec rm -rf {} + 2>/dev/null || true
+        fi
+        if ! grep -R -E -q 'QtGraphicalEffects' "${GITHUB_WORKSPACE}/rdm/src/qml" "${GITHUB_WORKSPACE}/rdm/src"; then
+          rm -rf ./RESP.app/Contents/Resources/qml/QtGraphicalEffects
+        fi
+        if ! grep -R -E -q 'QtQuick\.Extras' "${GITHUB_WORKSPACE}/rdm/src/qml" "${GITHUB_WORKSPACE}/rdm/src"; then
+          find ./RESP.app/Contents/PlugIns ./RESP.app/Contents/Resources/qml -iname '*quickextras*' -exec rm -rf {} + 2>/dev/null || true
         fi
         echo "RESP.app size breakdown"
         du -sh RESP.app/Contents/* | sort -h
