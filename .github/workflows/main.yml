@@ -322,6 +322,23 @@ jobs:
             strip -x "${macho_file}"
           fi
         done < <(find ./RESP.app/Contents -type f -print0)
+        # QtVirtualKeyboard is not part of the desktop QML imports used by
+        # RESP. Remove it only when the checked-out sources contain no import
+        # or plugin reference, so a future source change keeps the runtime.
+        if ! grep -R -E -q 'QtQuick\.VirtualKeyboard|QtVirtualKeyboard' "${GITHUB_WORKSPACE}/rdm/src/qml" "${GITHUB_WORKSPACE}/rdm/src"; then
+          rm -rf ./RESP.app/Contents/Frameworks/QtVirtualKeyboard.framework
+          find ./RESP.app/Contents/PlugIns ./RESP.app/Contents/Resources/qml -iname '*virtualkeyboard*' -exec rm -rf {} + 2>/dev/null || true
+        fi
+        echo "RESP.app size breakdown"
+        du -sh RESP.app/Contents/* | sort -h
+        echo "Largest bundled files"
+        find RESP.app/Contents -type f -print0 | xargs -0 du -h | sort -h | tail -30
+        echo "Python runtime breakdown"
+        du -sh "${python_runtime_dir}"/* 2>/dev/null | sort -h
+        echo "Qt plugin breakdown"
+        find RESP.app/Contents/PlugIns -mindepth 1 -maxdepth 2 -type d -print0 2>/dev/null | xargs -0 -r du -sh | sort -h
+        echo "QML module breakdown"
+        find RESP.app/Contents/Resources/qml -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null | xargs -0 -r du -sh | sort -h
         # macdeployqt and install_name_tool modify Mach-O files after the
         # build. Re-sign the complete bundle before macOS validates its pages.
         python_framework_bundle=./RESP.app/Contents/Frameworks/Python.framework
